@@ -7,6 +7,7 @@
 -- Revision History:
 -- Date          Version     Description
 -- 11/11/2025    1.0         Initial creation
+-- 11/13/2025                Debugged to work in Vivado
 --------------------------------------------------------------------------------
 
 library IEEE;
