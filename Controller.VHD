@@ -1,5 +1,29 @@
-library ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+--------------------------------------------------------------------------------
+-- File: Controller.vhd
+-- Author: 
+-- Date: November 11, 2025
+-- Description: 
+-- 
+-- Revision History:
+-- Date          Version     Description
+-- 11/11/2025    1.0         Initial creation
+-- 11/13/2025                Modified just enough for Vivado to accept it
+--------------------------------------------------------------------------------
+
+
+
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+
+
+
 entity Controller is
     port(
         clk : in std_logic; -- Clock input
@@ -20,3 +44,11 @@ entity Controller is
 
     );
 end Controller;
+
+architecture Behavioral of Controller is 
+begin
+
+
+
+
+end Behavioral;
