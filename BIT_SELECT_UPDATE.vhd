@@ -7,6 +7,7 @@
 -- Revision History:
 -- Date          Version     Description
 -- 11/11/2025    1.0         Initial creation
+-- 11/13/2025                Debugging 
 --------------------------------------------------------------------------------
 
 library IEEE;
@@ -42,8 +43,8 @@ begin
             class_counter <= 0;--default to class 0
             bit_counter <= 0; --default to bit 0
             testHV_counter <= 0; --default to TestHV 0
-            ClassHV <= ('11001'); --default output to class 25>>>>>>>>>>>>>>>
-            TestHV <= ('1111101'); --default output to TestHV 125>>>>>>>>>>>>>>>
+            ClassHV <= ("11001"); --default output to class 25>>>>>>>>>>>>>>>
+            TestHV <= ("1111101"); --default output to TestHV 125>>>>>>>>>>>>>>>
             bit_addr <= (others => '0'); --default output to bit 0
             Done <= '0'; -- Clear done signal
         elsif rising_edge(clk) then
@@ -60,7 +61,7 @@ begin
                         bit_counter <= 0; --reset bit counter for next class
                     else -- when class counter reaches 0 and bit counter reaches 1023
                     -- this statement is for when the test hypervector has been compared against all class hypervectors
-                        class_counter <= '11001'; -- wrap around to first class
+                        class_counter <= 25; -- wrap around to first class
                         Done <= '1'; -- signal that all classes and bits have been output
                         --and the current inference cycle is complete for the current test HV
                         -- Next test HV can be loaded externally or counter incremented here
@@ -84,4 +85,5 @@ begin
         end if;
     end process;
 end Behavioral;
+
 
