@@ -7,6 +7,7 @@
 -- Revision History:
 -- Date          Version     Description
 -- 11/11/2025    1.0         Initial creation
+-- 11/13/2025                Debugged Syntax Error
 --------------------------------------------------------------------------------
 
 library IEEE;
@@ -31,7 +32,7 @@ entity Hamm_MAX is
     --=========== but only when the hamming_accumulator module is done calculating
     data_in     : in  STD_LOGIC_VECTOR(10 downto 0);-- Input data from HAMM module
     sum_out     : out STD_LOGIC_VECTOR(10 downto 0);  -- Max count is 1024, needs 11 bits
-    new_max     : out STD_LOGIC; -- Signal to controller indicating a new max found
+    new_max     : out STD_LOGIC -- Signal to controller indicating a new max found
 
 
 );
@@ -62,4 +63,5 @@ begin
 end Behavioral;
 --Current_Max is used to store the maximum value encountered so far.
 --this value is updated only when the Load signal is active and
+
 --the new input data exceeds the current maximum.
