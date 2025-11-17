@@ -35,7 +35,7 @@ end BIT_SELECT;
 architecture Behavioral of BIT_SELECT is
     signal class_counter : integer range 0 to 25 := 0;
     signal bit_counter : integer range 0 to 1023 := 0;
-    signal testHV_counter : integer range 0 to 125 := 0;
+    signal testHV_counter : integer range 0 to 127 := 0;
 begin
     process(clk, reset)
     begin
@@ -85,5 +85,6 @@ begin
         end if;
     end process;
 end Behavioral;
+
 
 
