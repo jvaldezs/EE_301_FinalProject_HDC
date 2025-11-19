@@ -7,7 +7,6 @@
 -- Revision History:
 -- Date          Version     Description
 -- 11/11/2025    1.0         Initial creation
--- 11/13/2025                Debugged to work in Vivado
 --------------------------------------------------------------------------------
 
 library IEEE;
@@ -16,21 +15,21 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity TestHV_RAM is
     port(
-        clk : in STD_LOGIC; -- Clock input
+        clk : in STD_LOGIC; -- Clock input from top level clock
         reset : in STD_LOGIC; -- Reset input
-        Read_en : in STD_LOGIC; -- Read enable signal
+        Read_en : in STD_LOGIC; -- Read enable signal FROM THE CONTROLLER/STATE MACHINE
         TestHV_addr : in std_logic_vector(6 downto 0); -- Test Hypervector class address (0-125)
         --controlled by the controller/state machine from bit select module
-        bit_addr : in std_logic_vector(9 downto 0); -- Bit address (0-1023)
+        bit_addr : in std_logic_vector(7 downto 0); -- Hex digit address (0-255)
         -- controlled by the controller/state machine from bit select module
-        data_out : out std_logic -- Output single bit
+        data_out : out std_logic_vector(3 downto 0) -- Output 4-bit hex digit
     );
 end TestHV_RAM;
 
 architecture Behavioral of TestHV_RAM is
 
-    type RAM_type is array (0 to 125) of std_logic_vector(1024 downto 0);
-    signal Test_RAM : RAM_type := (
+    type RAM_type is array (0 to 127) of std_logic_vector(1023 downto 0);
+    signal RAM : RAM_type := (
 
 x"D55C7B6C2DD224E2CBF6286E45715DBC8026AD201B5F36417D577627AC12E6C7C34EBB743248AAEE0E220194BF4EDD96BE861175EA6A7497E9062E905C13DDA0AB074DE5375762E90BFC0303EF5D635F63D1963919713C65C538C3B924884A27B0BCE2C1D9E126131581AF900366485C7340B677E0CD94AA8D5C622094DA95E7", 
 x"B54C6F2CADF2A4E38AD6187C4F715F2C8006BD601B5F2161795F36372C92E6E7C34DFB553248ABEE5E2241E6BF4E4D863E871165C063F497ED043C8C4C5B1DA0AB074D85375762E9ABDC4311AF59735973D1D63819717D4FC730C3B864A84E17B01CE2C1C9E1261B1081AF90136EC85473C1B67748CD14A2855866139CDA15E7", 
@@ -167,14 +166,19 @@ begin
     process(clk, reset)
     begin
     if (rising_edge(clk)) then
- 
-        if Read_en = '1' then --when read enable is high
-            data_out <= Test_RAM(to_integer(unsigned(testHV_addr)))(to_integer(unsigned(bit_addr)));
-        -- when enable is high, output the corresponding data bit which is provided by testHV_addr and bit_addr
-        --==================
-        --When enable is low, do nothing and keep the previous values
+        
+        if reset = '1' then
+            data_out <= (others => '0'); -- Initialize data_out to zero on reset
+        else
+            if Read_en = '1' then --when read enable is high
+                -- Output 4 bits (one hex digit) from selected address
+                -- bit_addr 0 = bits 1023 downto 1020, bit_addr 1 = bits 1019 downto 1016, etc.
+                data_out <= ram(to_integer(unsigned(testHV_addr)))((1023 - to_integer(unsigned(bit_addr)) * 4) downto (1020 - to_integer(unsigned(bit_addr)) * 4));
+            -- when enable is high, output the corresponding 4-bit hex digit
+            --==================
+            --When enable is low, do nothing and keep the previous values
+            end if;
         end if;
-
     end if;
     end process;
 end Behavioral;

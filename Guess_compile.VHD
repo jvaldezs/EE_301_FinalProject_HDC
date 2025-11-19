@@ -18,7 +18,7 @@ entity Guess_compile is
         clk : in STD_LOGIC;
         reset : in STD_LOGIC;        
         new_max : in STD_LOGIC; --signal from HAMM_MAX indicating new max found
-        Class_in : in std_logic_vector(4 downto 0); --class input ClassHV_RAM
+        Class_in : in std_logic_vector(4 downto 0); --class input ClassHV_RAM (CLASS_OUT)
         Guess_out : out std_logic_vector(4 downto 0) --output guess
 
     );
@@ -35,16 +35,18 @@ architecture Behavioral of Guess_compile is
 begin
     process(clk, reset)
     begin
-        if reset = '1' then
-            current_guess <= (others => '0');
-            --clear guess on reset
-        elsif rising_edge(clk) then
-            if new_max = '1' then
+        if rising_edge(clk) then
+            if reset = '1' then
+             current_guess <= (others => '0');
+             --clear guess on reset
+        
+            elsif new_max = '1' then
                 --when the HAMM_MAX signals a new max found
                 --update the guess to the current class being tested
                 current_guess <= Class_in;
             end if;
         end if;
+        Guess_out <= current_guess;
     end process;
-    Guess_out <= current_guess;
+    
 end Behavioral;

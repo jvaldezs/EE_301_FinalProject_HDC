@@ -7,7 +7,6 @@
 -- Revision History:
 -- Date          Version     Description
 -- 11/11/2025    1.0         Initial creation
--- 11/13/2025                Debugged Syntax Error
 --------------------------------------------------------------------------------
 
 library IEEE;
@@ -26,7 +25,7 @@ entity Hamm_MAX is
     (
     clk         : in  STD_LOGIC; -- Clock input
     reset       : in  STD_LOGIC; -- Reset input to clear accumulator
-    Load        : in  STD_LOGIC; -- Load signal from control
+    Load        : in  STD_LOGIC; -- Load signal from control same as RAM_EN
     --===========Load signal should be active when we want to compare
     --===========the current hamming distance with the stored maximum
     --=========== but only when the hamming_accumulator module is done calculating
@@ -41,7 +40,7 @@ end Hamm_MAX;
 architecture Behavioral of Hamm_MAX is
     signal Current_Max : STD_LOGIC_VECTOR(10 downto 0) := (others => '0');
 begin
-    process(clk)
+    process(clk, reset)
     begin
         if(rising_edge(clk)) then
             if(reset = '1') then
@@ -63,5 +62,4 @@ begin
 end Behavioral;
 --Current_Max is used to store the maximum value encountered so far.
 --this value is updated only when the Load signal is active and
-
 --the new input data exceeds the current maximum.
