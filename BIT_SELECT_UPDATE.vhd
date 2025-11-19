@@ -27,6 +27,7 @@ entity BIT_SELECT is
         ClassHV : out std_logic_vector(4 downto 0); -- class output (1-26)
         TestHV : out std_logic_vector(6 downto 0); -- Test Hypervector class address (0-127)>>>>>>>>>>>>>>>>>>>>>>
         bit_addr : out std_logic_vector(7 downto 0); -- Hex digit address (0-255)
+        ClassHV_Done : out std_logic; -- Signals when all bits for one ClassHV have been compared
         TestHV_Done : out std_logic; -- Signals when all classes and bits have been compared to a single TestHV
         Done : out std_logic -- when all TestHVs have been processed 
        
@@ -34,20 +35,18 @@ entity BIT_SELECT is
 end BIT_SELECT;
 
 architecture Behavioral of BIT_SELECT is
-    signal class_counter : integer range 0 to 25 := 0;
-    signal bit_counter : integer range 0 to 255 := 0;
-    signal testHV_counter : integer range 0 to 127 := 0;
+    signal class_counter : integer range 0 to 25;
+    signal bit_counter : integer range 0 to 255;
+    signal testHV_counter : integer range 0 to 127;
     signal iteration_done : std_logic := '0'; -- Flag to indicate completion of all iterations
 begin
     process(clk, reset)
     begin
         if reset = '1' then
-            class_counter <= 0;--default to class 0
+            class_counter <= 25;--default to class 25
             bit_counter <= 0; --default to bit 0
-            testHV_counter <= 0; --default to TestHV 0
-            ClassHV <= ("11001"); --default output to class 25
-            TestHV <= ("1111111"); --default output to TestHV 127>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            bit_addr <= (others => '0'); --default output to bit 0
+            testHV_counter <= 127; --default to TestHV 127
+            ClassHV_Done <= '0'; -- Clear ClassHV done signal
             TestHV_Done <= '0'; -- Clear done signal
         elsif rising_edge(clk) then
             if enable = '1' then -- Only run when enabled
@@ -63,12 +62,14 @@ begin
                     if bit_counter < 255 then -- iterate through hex digits until 255
                     bit_counter <= bit_counter + 1; --increment bit counter
                     TestHV_Done <= '0'; -- Clear done during iteration
+                    ClassHV_Done <= '0'; -- Clear ClassHV done during iteration
                     else --when bit counter reaches 255
                     bit_counter <= 0; --reset bit counter
+                    ClassHV_Done <= '1'; -- Signal that one ClassHV comparison is complete
                         if class_counter > 0 then--and if class counter less than 25
                         class_counter <= class_counter - 1; --decrement class counter************************** 
                         TestHV_Done <= '0'; -- Clear done, more classes to process
-                        bit_counter <= 0; --reset bit counter for next class
+                        
                         else -- when class counter reaches 0 and bit counter reaches 255
                     -- this statement is for when the test hypervector has been compared against all class hypervectors
                         class_counter <= 25; -- wrap around to first class
@@ -79,7 +80,7 @@ begin
                         testHV_counter <= testHV_counter - 1; --decrement test HV counter
                         -- the next TestHv is selected for array address and the process can iterate 
                         --through the next TestHV against all ClassHVs
-                        bit_counter <= 0; --reset bit counter for next class
+                        --bit_counter <= 0; --reset bit counter for next class REDUNDANT
                         end if;
 
                     end if;

@@ -79,9 +79,10 @@ begin
         -- bit_addr 0 = bits 1023 downto 1020, bit_addr 1 = bits 1019 downto 1016, etc.
         RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)))((1023 - to_integer(unsigned(bit_addr)) * 4) downto (1020 - to_integer(unsigned(bit_addr)) * 4));
         --address is selected by the class and the bit_addr input
-        CLASS_OUT <= class_select; -- Output current class being read
 
         end if;
+        -- Always output the current class select (combinational, not gated by RAM_EN)
+        CLASS_OUT <= class_select;
     end if;
 end process;
 end Behavioral; 

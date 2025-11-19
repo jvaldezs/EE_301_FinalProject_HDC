@@ -16,7 +16,8 @@ use IEEE.NUMERIC_STD.ALL;
 entity Guess_compile is
     port(
         clk : in STD_LOGIC;
-        reset : in STD_LOGIC;        
+        reset : in STD_LOGIC;
+        TestHV_Done : in STD_LOGIC; --signal when TestHV completes to reset guess
         new_max : in STD_LOGIC; --signal from HAMM_MAX indicating new max found
         Class_in : in std_logic_vector(4 downto 0); --class input ClassHV_RAM (CLASS_OUT)
         Guess_out : out std_logic_vector(4 downto 0) --output guess
@@ -32,18 +33,27 @@ end Guess_compile;
 architecture Behavioral of Guess_compile is
 
     signal current_guess : std_logic_vector(4 downto 0) := (others => '0');
+    signal prev_TestHV_Done : std_logic := '0';
 begin
     process(clk, reset)
     begin
         if rising_edge(clk) then
             if reset = '1' then
              current_guess <= (others => '0');
+             prev_TestHV_Done <= '0';
              --clear guess on reset
         
-            elsif new_max = '1' then
-                --when the HAMM_MAX signals a new max found
-                --update the guess to the current class being tested
-                current_guess <= Class_in;
+            else
+                prev_TestHV_Done <= TestHV_Done;
+                
+                -- Clear guess one cycle after TestHV_Done (on falling edge)
+                if prev_TestHV_Done = '1' and TestHV_Done = '0' then
+                    current_guess <= (others => '0');
+                elsif new_max = '1' then
+                    --when the HAMM_MAX signals a new max found
+                    --update the guess to the current class being tested
+                    current_guess <= Class_in;
+                end if;
             end if;
         end if;
         Guess_out <= current_guess;

@@ -23,7 +23,12 @@ entity Inference_Top is
         
         -- Output
         Guess_out   : out STD_LOGIC_VECTOR(4 downto 0); -- Final classification (0-25)
-        Done        : out STD_LOGIC  -- Inference complete signal
+        Done        : out STD_LOGIC;  -- Inference complete signal
+        TestHV_done : out STD_LOGIC;  -- Signals when all TestHVs have been processed
+        Current_bit_addr : out std_logic_vector(7 downto 0);  -- Current bit address being processed
+        current_class_addr : out std_logic_vector(4 downto 0);  -- Current class address being processed
+        current_testHV_addr : out std_logic_vector(6 downto 0);  -- Current TestHV address being processed
+        hamm_sum_out : out std_logic_vector(10 downto 0)  -- Current Hamming distance accumulator output
     );
 end Inference_Top;
 
@@ -38,6 +43,7 @@ architecture Structural of Inference_Top is
             ClassHV  : out std_logic_vector(4 downto 0);
             TestHV   : out std_logic_vector(6 downto 0);
             bit_addr : out std_logic_vector(7 downto 0);
+            ClassHV_done : out std_logic;
             TestHV_done : out std_logic;
             Done     : out std_logic
         );
@@ -72,7 +78,8 @@ architecture Structural of Inference_Top is
         port(
             clk       : in  STD_LOGIC;
             reset     : in  STD_LOGIC;
-            Load      : in  STD_LOGIC;           
+            Load      : in  STD_LOGIC;
+            ClassHV_Done : in  STD_LOGIC;
             A_data_in : in  STD_LOGIC_VECTOR(3 downto 0);
             B_data_in : in  STD_LOGIC_VECTOR(3 downto 0);
             sum_out   : out STD_LOGIC_VECTOR(10 downto 0)
@@ -84,6 +91,7 @@ architecture Structural of Inference_Top is
             clk      : in  STD_LOGIC;
             reset    : in  STD_LOGIC;
             Load     : in  STD_LOGIC;
+            TestHV_Done : in  STD_LOGIC;
             data_in  : in  STD_LOGIC_VECTOR(10 downto 0);
             sum_out  : out STD_LOGIC_VECTOR(10 downto 0);
             new_max  : out STD_LOGIC
@@ -94,6 +102,7 @@ architecture Structural of Inference_Top is
         port(
             clk      : in  STD_LOGIC;
             reset    : in  STD_LOGIC;
+            TestHV_Done : in  STD_LOGIC;
             new_max  : in  STD_LOGIC;
             Class_in : in  std_logic_vector(4 downto 0);
             Guess_out: out std_logic_vector(4 downto 0)
@@ -118,6 +127,7 @@ architecture Structural of Inference_Top is
     signal TestHV_addr_sig   : std_logic_vector(6 downto 0);
     signal bit_addr_sig      : std_logic_vector(7 downto 0);
     signal INF_Done_sig  : std_logic;
+    signal ClassHV_Done_sig : std_logic;
     signal TestHV_Done_sig : std_logic;
     
     -- RAM outputs
@@ -132,11 +142,13 @@ architecture Structural of Inference_Top is
     -- HAMM MAX signals
     signal max_sum       : std_logic_vector(10 downto 0);
     signal new_max_sig   : std_logic;
-    --Guess out signals
-    signal guess_out_sig : std_logic_vector(4 downto 0);
+    
     -- Controller signals
 
     signal RAM_EN_sig             : std_logic;
+    
+    --Guess signal
+    signal guess_out_sig : std_logic_vector(4 downto 0) ;
   
     
 begin
@@ -150,6 +162,8 @@ begin
             ClassHV  => ClassHV_addr,--===========================
             TestHV   => TestHV_addr_sig,--outputs
             bit_addr => bit_addr_sig,
+            ClassHV_done => ClassHV_Done_sig,--=========================
+            TestHV_done => TestHV_Done_sig,--=========================
             Done     => INF_Done_sig--=========================
         );
     
@@ -183,7 +197,7 @@ begin
             clk       => clk,--==============================
             reset     => reset,--inputs
             Load      => RAM_EN_sig,--============================
-            
+            ClassHV_Done => ClassHV_Done_sig,--============================
             A_data_in => ClassHV_bit,--===========================      
             B_data_in => TestHV_bit,--outputs
             sum_out   => hamm_sum--=============================
@@ -195,6 +209,7 @@ begin
             clk      => clk,--==============================
             reset    => reset,--inputs
             Load     => RAM_EN_sig,--============================
+            TestHV_Done => TestHV_Done_sig,--============================
             data_in  => hamm_sum,--===========================
             sum_out  => max_sum,--outputs
             new_max  => new_max_sig
@@ -205,8 +220,9 @@ begin
         port map(
             clk       => clk,--==============================
             reset     => reset,--inputs
+            TestHV_Done => TestHV_Done_sig,--============================
             new_max   => new_max_sig,--============================
-            Class_in  => ClassHV_addr,--===========================
+            Class_in  => class_out_sig,--===========================
             Guess_out => guess_out_sig--outputs
         );
     
@@ -225,5 +241,10 @@ begin
     -- Output assignments
     Done <= INF_Done_sig;
     Guess_out <= guess_out_sig;
-    
+    Current_bit_addr <= bit_addr_sig;
+    TestHV_done <= TestHV_Done_sig;
+    current_class_addr <= ClassHV_addr;
+    current_testHV_addr <= TestHV_addr_sig;
+    hamm_sum_out <= hamm_sum;
+
 end Structural;

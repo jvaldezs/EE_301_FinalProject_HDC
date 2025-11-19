@@ -54,7 +54,7 @@ begin
     end case;
 end process;
 
-NEXT_STATE_UPDATE: process (state, inference_done)
+NEXT_STATE_UPDATE: process (state, inference_done, start)
 begin
     case (state) is 
         when Sreset => -- 

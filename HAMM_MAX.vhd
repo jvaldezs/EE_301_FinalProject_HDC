@@ -26,6 +26,7 @@ entity Hamm_MAX is
     clk         : in  STD_LOGIC; -- Clock input
     reset       : in  STD_LOGIC; -- Reset input to clear accumulator
     Load        : in  STD_LOGIC; -- Load signal from control same as RAM_EN
+    TestHV_Done : in  STD_LOGIC; -- Signal to clear max when starting new TestHV
     --===========Load signal should be active when we want to compare
     --===========the current hamming distance with the stored maximum
     --=========== but only when the hamming_accumulator module is done calculating
@@ -39,6 +40,7 @@ end Hamm_MAX;
 
 architecture Behavioral of Hamm_MAX is
     signal Current_Max : STD_LOGIC_VECTOR(10 downto 0) := (others => '0');
+    signal prev_TestHV_Done : std_logic := '0';
 begin
     process(clk, reset)
     begin
@@ -46,17 +48,28 @@ begin
             if(reset = '1') then
                 Current_Max <= (others => '0'); -- Clear on reset
                 sum_out <= (others => '0'); -- Reset output to 0 for first comparison
-            elsif(Load = '1') then -- Load signal active from controller
-                if(unsigned(data_in) > unsigned(Current_Max)) then --if new max found
-                    new_max <= '1'; -- Signal to controller that a new max is found
-                    --this is a pulse signal that updates the guess module
-                    --to the current class as the current best guess
-                    Current_Max <= data_in; -- Update max if new data is greater
-                else
-                    new_max <= '0'; -- No new max found
+                new_max <= '0';
+                prev_TestHV_Done <= '0';
+            else
+                prev_TestHV_Done <= TestHV_Done;
+                
+                -- Clear max one cycle AFTER TestHV_Done goes high (on falling edge)
+                if prev_TestHV_Done = '1' and TestHV_Done = '0' then
+                    Current_Max <= (others => '0'); -- Reset for next TestHV
+                    sum_out <= (others => '0');
+                    new_max <= '0';
+                elsif(Load = '1') then -- Load signal active from controller
+                    if(unsigned(data_in) > unsigned(Current_Max)) then --if new max found
+                        new_max <= '1'; -- Signal to controller that a new max is found
+                        --this is a pulse signal that updates the guess module
+                        --to the current class as the current best guess
+                        Current_Max <= data_in; -- Update max if new data is greater
+                    else
+                        new_max <= '0'; -- No new max found
+                    end if;
                 end if;
+                sum_out <= Current_Max; -- Always output the current max
             end if;
-            sum_out <= Current_Max; -- Always output the current max
         end if;
     end process;
 end Behavioral;
