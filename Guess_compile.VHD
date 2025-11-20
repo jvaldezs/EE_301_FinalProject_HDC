@@ -46,7 +46,7 @@ begin
             else
                 prev_TestHV_Done <= TestHV_Done;
                 
-                -- Clear guess one cycle after TestHV_Done (on falling edge)
+                -- Clear guess one cycle after TestHV_Done (on falling edge) so each test HV is starting its comparison from scratch
                 if prev_TestHV_Done = '1' and TestHV_Done = '0' then
                     current_guess <= (others => '0');
                 elsif new_max = '1' then
