@@ -34,18 +34,20 @@ signal first_load : std_logic := '0';
 begin
     process(clk, reset)
         variable match_count : integer range 0 to 4; -- Count matches in current comparison
+        -- the hamming function is comparing two vectors of 4-bits so the max match would be 4 perfect matches
     begin
         if(rising_edge(clk)) then
             if(reset = '1') then
                 accumulator <= (others => '0'); -- Clear accumulator on reset
                 first_load <= '0'; --disables export until at least one load has occurred
-            elsif(ClassHV_Done = '1') then -- Clear accumulator when ClassHV comparison is complete
+            elsif(ClassHV_Done = '1') then -- Clear accumulator when ClassHV to current Test HV comparison is complete
                 accumulator <= (others => '0'); -- Reset for next ClassHV
                 first_load <= '0'; -- Reset first_load flag
-            elsif(Load = '1') then --load signal active from controller
+            elsif(Load = '1') then --load signal active from controller. I was trying to use this to solve the timing issue but it seems to not be working. Im fine removing this variable and the functions related to it if we can find a better way to solve the timing issue of the hamming accumulator comparing empty vectors of 0000
             --this is active when we want to compare inputs for inference
                 -- Count how many bits match
-                match_count := 0; -- Reset count for this comparison
+                match_count := 0; -- Reset count for this comparison. this is reseting every cycle
+                -- below is the how this module compares the 4 individual bits of each vector against eachother at the same time
                 if(A_data_in(0) = B_data_in(0)) then --if bit 0 matches
                     match_count := match_count + 1;
                 end if;
@@ -67,4 +69,5 @@ begin
             end if;
         end if;
     end process;
+
 end Behavioral;
