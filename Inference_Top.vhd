@@ -239,6 +239,7 @@ begin
         );
     
     -- Output assignments
+        -- i added these so i can monitor them in the test bench/ simulation
     Done <= INF_Done_sig;
     Guess_out <= guess_out_sig;
     Current_bit_addr <= bit_addr_sig;
@@ -248,3 +249,4 @@ begin
     hamm_sum_out <= hamm_sum;
 
 end Structural;
+
