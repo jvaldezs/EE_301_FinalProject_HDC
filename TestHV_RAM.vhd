@@ -174,7 +174,7 @@ begin
                 -- Output 4 bits (one hex digit) from selected address
                 -- bit_addr 0 = bits 1023 downto 1020, bit_addr 1 = bits 1019 downto 1016, etc.
                 data_out <= ram(to_integer(unsigned(testHV_addr)))((1023 - to_integer(unsigned(bit_addr)) * 4) downto (1020 - to_integer(unsigned(bit_addr)) * 4));
-            -- when enable is high, output the corresponding 4-bit hex digit
+            -- when enable is high, output the corresponding 4-bit hex digit. since the vectors are declared as hex with the x we can still index the individual bits from 0-1023
             --==================
             --When enable is low, do nothing and keep the previous values
             end if;
