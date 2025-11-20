@@ -35,9 +35,9 @@ entity BIT_SELECT is
 end BIT_SELECT;
 
 architecture Behavioral of BIT_SELECT is
-    signal class_counter : integer range 0 to 25;
-    signal bit_counter : integer range 0 to 255;
-    signal testHV_counter : integer range 0 to 127;
+    signal class_counter : integer range 0 to 25; --internal signal that translates into the output
+    signal bit_counter : integer range 0 to 255;--^^^^^^^^^^^^^^
+    signal testHV_counter : integer range 0 to 127;--^^^^^^^^^^^^^^^^^
     signal iteration_done : std_logic := '0'; -- Flag to indicate completion of all iterations
 begin
     process(clk, reset)
@@ -48,6 +48,9 @@ begin
             testHV_counter <= 127; --default to TestHV 127
             ClassHV_Done <= '0'; -- Clear ClassHV done signal
             TestHV_Done <= '0'; -- Clear done signal
+            --The class and test HV start at the bottom of the array because the python script used to print out the arrays print sequentially 
+            -- so the first line of the printed HV gets pushed down as each line prints. so instead of copy and pasting each line or using another script or function to...
+            --reverse the vectors in the array we start from the bottom
         elsif rising_edge(clk) then
             if enable = '1' then -- Only run when enabled
             --======================================================
@@ -58,16 +61,16 @@ begin
                 else
                     iteration_done <= '0'; -- TestHV/ClassHV/bit_addr cycle not complete
                 end if;
-                if iteration_done = '0' then
-                    if bit_counter < 255 then -- iterate through hex digits until 255
+                if iteration_done = '0' then -- as long as the iteration is not done
+                    if bit_counter < 255 then -- if the bit address is less than 255 iterate through hex digits until 255
                     bit_counter <= bit_counter + 1; --increment bit counter
-                    TestHV_Done <= '0'; -- Clear done during iteration
-                    ClassHV_Done <= '0'; -- Clear ClassHV done during iteration
-                    else --when bit counter reaches 255
-                    bit_counter <= 0; --reset bit counter
+                    TestHV_Done <= '0'; -- Clear done during iteration since the inference is still cycling through the bit addr
+                    ClassHV_Done <= '0'; -- Clear ClassHV done during iteration since ^^^^^^
+                    else --when bit counter reaches 255, meaning the inference for test to class is done
+                    bit_counter <= 0; --reset bit counter for next class
                     ClassHV_Done <= '1'; -- Signal that one ClassHV comparison is complete
-                        if class_counter > 0 then--and if class counter less than 25
-                        class_counter <= class_counter - 1; --decrement class counter************************** 
+                        if class_counter > 0 then--and if class counter greater than 0 it means there are still classes left to compare
+                        class_counter <= class_counter - 1; --decrement class counter**************************  25=>0
                         TestHV_Done <= '0'; -- Clear done, more classes to process
                         
                         else -- when class counter reaches 0 and bit counter reaches 255
@@ -85,7 +88,7 @@ begin
 
                     end if;
                 end if;
-            else
+            else -- if enable is 0
                 TestHV_Done <= '0'; -- Clear done when not enabled
             end if;
             Done <= iteration_done; -- Output done signal
@@ -98,6 +101,7 @@ begin
         end if;
     end process;
 end Behavioral;
+
 
 
 
