@@ -54,6 +54,7 @@ begin
                 prev_TestHV_Done <= TestHV_Done;
                 
                 -- Clear max one cycle AFTER TestHV_Done goes high (on falling edge)
+                -- this is so the best guess for the testHV doesnt roll over to the next inference iteration
                 if prev_TestHV_Done = '1' and TestHV_Done = '0' then
                     Current_Max <= (others => '0'); -- Reset for next TestHV
                     sum_out <= (others => '0');
@@ -75,4 +76,5 @@ begin
 end Behavioral;
 --Current_Max is used to store the maximum value encountered so far.
 --this value is updated only when the Load signal is active and
+
 --the new input data exceeds the current maximum.
