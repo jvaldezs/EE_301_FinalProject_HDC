@@ -40,11 +40,11 @@ begin
     case (state) is
         when Sreset =>
             RAM_EN <= '0'; -- 
-                     
+        --I think a loading state that goes back and forth in between the run and load can help us buffer the overlap of summations spilling into the next testHV and also prevent the initial hamming function from comparing two empty vectors of all 0000 which is giving the sum out a perfect match_out value of 4 on the first iteration             
         when Srun =>
             RAM_EN <= '1'; --w
             
-
+        
         when Sdone =>-- 
             RAM_EN <= '0'; --
             
@@ -77,3 +77,4 @@ begin
 end process;
 
 end Behavioral;
+
