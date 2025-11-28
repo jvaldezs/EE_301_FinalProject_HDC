@@ -9,7 +9,6 @@
 -- Revision History:
 -- Date          Version     Description
 -- 11/11/2025    1.0         Initial creation
--- 11/13/2025                Edits to allow inter-component communication in Vivado
 --------------------------------------------------------------------------------
 
 library IEEE;
@@ -24,7 +23,12 @@ entity Inference_Top is
         
         -- Output
         Guess_out   : out STD_LOGIC_VECTOR(4 downto 0); -- Final classification (0-25)
-        Done        : out STD_LOGIC  -- Inference complete signal
+        Done        : out STD_LOGIC;  -- Inference complete signal
+        TestHV_done : out STD_LOGIC;  -- Signals when all TestHVs have been processed
+        Current_bit_addr : out std_logic_vector(7 downto 0);  -- Current bit address being processed
+        current_class_addr : out std_logic_vector(4 downto 0);  -- Current class address being processed
+        current_testHV_addr : out std_logic_vector(6 downto 0);  -- Current TestHV address being processed
+        hamm_sum_out : out std_logic_vector(13 downto 0)  -- Current Hamming distance accumulator output
     );
 end Inference_Top;
 
@@ -38,7 +42,9 @@ architecture Structural of Inference_Top is
             enable   : in  STD_LOGIC;
             ClassHV  : out std_logic_vector(4 downto 0);
             TestHV   : out std_logic_vector(6 downto 0);
-            bit_addr : out std_logic_vector(9 downto 0);
+            bit_addr : out std_logic_vector(7 downto 0);
+            ClassHV_done : out std_logic;
+            TestHV_done : out std_logic;
             Done     : out std_logic
         );
     end component;
@@ -46,22 +52,25 @@ architecture Structural of Inference_Top is
     component ClassHV_RAM is
         port(
             class_select : in  std_logic_vector(4 downto 0);
-            bit_addr     : in  std_logic_vector(9 downto 0);
+            bit_addr     : in  std_logic_vector(7 downto 0);
             RAM_CLOCK    : in  std_logic;
             RAM_EN       : in  std_logic;
-            RAM_DATA_OUT : out std_logic;
-            done         : out std_logic
+            reset        : in  std_logic;
+            RAM_DATA_OUT : out std_logic_vector(1023 downto 0);
+            CLASS_OUT    : out std_logic_vector(4 downto 0)
+            
         );
     end component;
     
     component TestHV_RAM is
         port(
-            test_select  : in  std_logic_vector(6 downto 0);
-            bit_addr     : in  std_logic_vector(9 downto 0);
-            RAM_CLOCK    : in  std_logic;
-            RAM_EN       : in  std_logic;
-            RAM_DATA_OUT : out std_logic;
-            done         : out std_logic
+            clk          : in  std_logic;
+            reset        : in  std_logic;
+            TestHV_addr  : in  std_logic_vector(6 downto 0);
+            bit_addr     : in  std_logic_vector(7 downto 0);           
+            Read_en      : in  std_logic;
+            data_out     : out std_logic_vector(1023 downto 0)
+            
         );
     end component;
     
@@ -70,10 +79,10 @@ architecture Structural of Inference_Top is
             clk       : in  STD_LOGIC;
             reset     : in  STD_LOGIC;
             Load      : in  STD_LOGIC;
-            export    : in  STD_LOGIC;
-            A_data_in : in  STD_LOGIC;
-            B_data_in : in  STD_LOGIC;
-            sum_out   : out STD_LOGIC_VECTOR(10 downto 0)
+            ClassHV_Done : in  STD_LOGIC;
+            A_data_in : in  STD_LOGIC_VECTOR(1023 downto 0);
+            B_data_in : in  STD_LOGIC_VECTOR(1023 downto 0);
+            sum_out   : out STD_LOGIC_VECTOR(13 downto 0)
         );
     end component;
     
@@ -82,8 +91,9 @@ architecture Structural of Inference_Top is
             clk      : in  STD_LOGIC;
             reset    : in  STD_LOGIC;
             Load     : in  STD_LOGIC;
-            data_in  : in  STD_LOGIC_VECTOR(10 downto 0);
-            sum_out  : out STD_LOGIC_VECTOR(10 downto 0);
+            TestHV_Done : in  STD_LOGIC;
+            data_in  : in  STD_LOGIC_VECTOR(13 downto 0);
+            sum_out  : out STD_LOGIC_VECTOR(13 downto 0);
             new_max  : out STD_LOGIC
         );
     end component;
@@ -92,6 +102,7 @@ architecture Structural of Inference_Top is
         port(
             clk      : in  STD_LOGIC;
             reset    : in  STD_LOGIC;
+            TestHV_Done : in  STD_LOGIC;
             new_max  : in  STD_LOGIC;
             Class_in : in  std_logic_vector(4 downto 0);
             Guess_out: out std_logic_vector(4 downto 0)
@@ -102,16 +113,10 @@ architecture Structural of Inference_Top is
         port(
             clk                       : in  std_logic;
             reset                     : in  std_logic;
-            start                     : in  std_logic;
-            Load_HAMM                 : out std_logic;
-            export_HAMM               : out std_logic;
-            Load_HAMM_MAX             : out std_logic;
-            enable_inference_iteration: out std_logic;
+            start                     : in  std_logic;           
             RAM_EN                    : out std_logic;
-            INF_Done                  : in  std_logic;
-            Vect_Done                 : in  std_logic;
-            new_max                   : in  std_logic;
-            Update_Guess              : out std_logic
+            inference_done            : out  std_logic
+ 
         );
     end component;
     
@@ -119,118 +124,129 @@ architecture Structural of Inference_Top is
     
     -- BIT_SELECT outputs
     signal ClassHV_addr  : std_logic_vector(4 downto 0);
-    signal TestHV_addr   : std_logic_vector(6 downto 0);
-    signal bit_addr      : std_logic_vector(9 downto 0);
+    signal TestHV_addr_sig   : std_logic_vector(6 downto 0);
+    signal bit_addr_sig      : std_logic_vector(7 downto 0);
     signal INF_Done_sig  : std_logic;
+    signal ClassHV_Done_sig : std_logic;
+    signal TestHV_Done_sig : std_logic;
     
     -- RAM outputs
-    signal ClassHV_bit   : std_logic;
-    signal TestHV_bit    : std_logic;
-    signal ClassHV_done  : std_logic;
-    signal TestHV_done   : std_logic;
+    signal ClassHV_bit   : std_logic_vector(1023 downto 0);
+    signal TestHV_bit    : std_logic_vector(1023 downto 0);
+    signal class_out_sig : std_logic_vector(4 downto 0);
+    
     
     -- HAMM accumulator signals
-    signal hamm_sum      : std_logic_vector(10 downto 0);
+    signal hamm_sum      : std_logic_vector(13 downto 0);
     
     -- HAMM MAX signals
-    signal max_sum       : std_logic_vector(10 downto 0);
+    signal max_sum       : std_logic_vector(13 downto 0);
     signal new_max_sig   : std_logic;
     
     -- Controller signals
-    signal Load_HAMM_sig          : std_logic;
-    signal export_HAMM_sig        : std_logic;
-    signal Load_HAMM_MAX_sig      : std_logic;
-    signal enable_iteration_sig   : std_logic;
+
     signal RAM_EN_sig             : std_logic;
-    signal Update_Guess_sig       : std_logic;
+    
+    --Guess signal
+    signal guess_out_sig : std_logic_vector(4 downto 0) ;
+  
     
 begin
     
     -- Instantiate BIT_SELECT
     U_BIT_SELECT: BIT_SELECT
         port map(
-            clk      => clk,
-            reset    => reset,
-            enable   => enable_iteration_sig,
-            ClassHV  => ClassHV_addr,
-            TestHV   => TestHV_addr,
-            bit_addr => bit_addr,
-            Done     => INF_Done_sig
+            clk      => clk,--==============================
+            reset    => reset,--inputs
+            enable   => RAM_EN_sig,--============================
+            ClassHV  => ClassHV_addr,--===========================
+            TestHV   => TestHV_addr_sig,--outputs
+            bit_addr => bit_addr_sig,
+            ClassHV_done => ClassHV_Done_sig,--=========================
+            TestHV_done => TestHV_Done_sig,--=========================
+            Done     => INF_Done_sig--=========================
         );
     
     -- Instantiate ClassHV_RAM
     U_ClassHV_RAM: ClassHV_RAM
         port map(
-            class_select => ClassHV_addr,
-            bit_addr     => bit_addr,
+            class_select => ClassHV_addr,--=========================
+            bit_addr     => bit_addr_sig,-- inputs
             RAM_CLOCK    => clk,
-            RAM_EN       => RAM_EN_sig,
-            RAM_DATA_OUT => ClassHV_bit,
-            done         => ClassHV_done
+            reset        => reset,
+            RAM_EN       => RAM_EN_sig,--=========================
+           --=========================
+            RAM_DATA_OUT => ClassHV_bit,-- outputs
+            CLASS_OUT    => class_out_sig--=========================
         );
     
     -- Instantiate TestHV_RAM
     U_TestHV_RAM: TestHV_RAM
         port map(
-            test_select  => TestHV_addr,
-            bit_addr     => bit_addr,
-            RAM_CLOCK    => clk,
-            RAM_EN       => RAM_EN_sig,
-            RAM_DATA_OUT => TestHV_bit,
-            done         => TestHV_done
-        );
+            clk          => clk,--==============================
+            reset        => reset,--inputs
+            read_en      => RAM_EN_sig,
+            TestHV_addr  => TestHV_addr_sig,
+            bit_addr     => bit_addr_sig,--===========================
+            data_out     => TestHV_bit --test hypervector bit output
+            );
     
     -- Instantiate HAMM_accumulator
     U_HAMM_accumulator: HAMM_accumulator
         port map(
-            clk       => clk,
-            reset     => reset,
-            Load      => Load_HAMM_sig,
-            export    => export_HAMM_sig,
-            A_data_in => ClassHV_bit,
-            B_data_in => TestHV_bit,
-            sum_out   => hamm_sum
+            clk       => clk,--==============================
+            reset     => reset,--inputs
+            Load      => RAM_EN_sig,--============================
+            ClassHV_Done => ClassHV_Done_sig,--============================
+            A_data_in => ClassHV_bit,--===========================      
+            B_data_in => TestHV_bit,--outputs
+            sum_out   => hamm_sum--=============================
         );
     
     -- Instantiate HAMM_MAX
     U_HAMM_MAX: Hamm_MAX
         port map(
-            clk      => clk,
-            reset    => reset,
-            Load     => Load_HAMM_MAX_sig,
-            data_in  => hamm_sum,
-            sum_out  => max_sum,
+            clk      => clk,--==============================
+            reset    => reset,--inputs
+            Load     => RAM_EN_sig,--============================
+            TestHV_Done => TestHV_Done_sig,--============================
+            data_in  => hamm_sum,--===========================
+            sum_out  => max_sum,--outputs
             new_max  => new_max_sig
         );
     
     -- Instantiate Guess_compile
     U_Guess_compile: Guess_compile
         port map(
-            clk       => clk,
-            reset     => reset,
-            new_max   => new_max_sig,
-            Class_in  => ClassHV_addr,
-            Guess_out => Guess_out
+            clk       => clk,--==============================
+            reset     => reset,--inputs
+            TestHV_Done => TestHV_Done_sig,--============================
+            new_max   => new_max_sig,--============================
+            Class_in  => class_out_sig,--===========================
+            Guess_out => guess_out_sig--outputs
         );
     
     -- Instantiate Controller
     U_Controller: Controller
         port map(
-            clk                        => clk,
-            reset                      => reset,
+            clk                        => clk,--=====================
+            reset                      => reset,--inputs
             start                      => start,
-            Load_HAMM                  => Load_HAMM_sig,
-            export_HAMM                => export_HAMM_sig,
-            Load_HAMM_MAX              => Load_HAMM_MAX_sig,
-            enable_inference_iteration => enable_iteration_sig,
-            RAM_EN                     => RAM_EN_sig,
-            INF_Done                   => INF_Done_sig,
-            Vect_Done                  => ClassHV_done,
-            new_max                    => new_max_sig,
-            Update_Guess               => Update_Guess_sig
+            inference_done            => INF_Done_sig,--=====================
+
+            RAM_EN                     => RAM_EN_sig
+         
         );
     
     -- Output assignments
+        -- i added these so i can monitor them in the test bench/ simulation
     Done <= INF_Done_sig;
-    
+    Guess_out <= guess_out_sig;
+    Current_bit_addr <= bit_addr_sig;
+    TestHV_done <= TestHV_Done_sig;
+    current_class_addr <= ClassHV_addr;
+    current_testHV_addr <= TestHV_addr_sig;
+    hamm_sum_out <= hamm_sum;
+
 end Structural;
+
