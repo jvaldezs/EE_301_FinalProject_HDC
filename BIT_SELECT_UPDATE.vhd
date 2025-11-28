@@ -22,69 +22,86 @@ entity BIT_SELECT is
     port(
         clk : in STD_LOGIC; -- Clock input
         reset : in STD_LOGIC; -- Reset input
-        enable : in STD_LOGIC; -- Enable signal to start the selection process
+        enable : in STD_LOGIC; -- Enable signal to start the selection process FROM THE CONTROLER/STATE MACHINE SAME SIGNAL AS RAM_EN
         --this is controlled by the state when the FSM wants to start reading bits for ClassHV RAM and TestHV RAM
         ClassHV : out std_logic_vector(4 downto 0); -- class output (1-26)
-        TestHV : out std_logic_vector(6 downto 0); -- Test Hypervector class address (0-125)
-        bit_addr : out std_logic_vector(9 downto 0); -- Bit address (0-1023)
-        Done : out std_logic -- Signals when all classes and bits have been output
+        TestHV : out std_logic_vector(6 downto 0); -- Test Hypervector class address (0-127)>>>>>>>>>>>>>>>>>>>>>>
+        bit_addr : out std_logic_vector(7 downto 0); -- Hex digit address (0-255)
+        ClassHV_Done : out std_logic; -- Signals when all bits for one ClassHV have been compared
+        TestHV_Done : out std_logic; -- Signals when all classes and bits have been compared to a single TestHV
+        Done : out std_logic -- when all TestHVs have been processed 
        
     );
 end BIT_SELECT;
 
 architecture Behavioral of BIT_SELECT is
-    signal class_counter : integer range 0 to 25 := 0;
-    signal bit_counter : integer range 0 to 1023 := 0;
-    signal testHV_counter : integer range 0 to 127 := 0;
+    signal class_counter : integer range 0 to 25; --internal signal that translates into the output
+    signal bit_counter : integer range 0 to 255;--^^^^^^^^^^^^^^
+    signal testHV_counter : integer range 0 to 127;--^^^^^^^^^^^^^^^^^
+    signal iteration_done : std_logic := '0'; -- Flag to indicate completion of all iterations
 begin
     process(clk, reset)
     begin
         if reset = '1' then
-            class_counter <= 0;--default to class 0
+            class_counter <= 25;--default to class 25
             bit_counter <= 0; --default to bit 0
-            testHV_counter <= 0; --default to TestHV 0
-            ClassHV <= ("11001"); --default output to class 25>>>>>>>>>>>>>>>
-            TestHV <= ("1111101"); --default output to TestHV 125>>>>>>>>>>>>>>>
-            bit_addr <= (others => '0'); --default output to bit 0
-            Done <= '0'; -- Clear done signal
+            testHV_counter <= 127; --default to TestHV 127
+            ClassHV_Done <= '0'; -- Clear ClassHV done signal
+            TestHV_Done <= '0'; -- Clear done signal
+            --The class and test HV start at the bottom of the array because the python script used to print out the arrays print sequentially 
+            -- so the first line of the printed HV gets pushed down as each line prints. so instead of copy and pasting each line or using another script or function to...
+            --reverse the vectors in the array we start from the bottom
         elsif rising_edge(clk) then
             if enable = '1' then -- Only run when enabled
             --======================================================
-                if bit_counter < 1023 then -- iterate through bits until 1023
-                    bit_counter <= bit_counter + 1; --increment bit counter>>>>>>>>>>>>>>
-                    Done <= '0'; -- Clear done during iteration
-                else --when bit counter reaches 1023
-                    bit_counter <= 0; --reset bit counter
-                    if class_counter > 0 then--and if class counter less than 25
-                        class_counter <= class_counter - 1; --decrement class counter >>>>>>>>>>>>>>>>>>
-                        Done <= '0'; -- Clear done, more classes to process
-                        bit_counter <= 0; --reset bit counter for next class
-                    else -- when class counter reaches 0 and bit counter reaches 1023
+                if (Class_counter = 0) and (TestHV_counter = 0) and (bit_counter = 255) then
+                    -- Special case when the iteration has ended its cycle since every
+                    -- testHV has been compared against every classHV and every hex digit
+                    iteration_done <= '1'; -- Set iteration done flag**********************************
+                else
+                    iteration_done <= '0'; -- TestHV/ClassHV/bit_addr cycle not complete
+                end if;
+                if iteration_done = '0' then -- as long as the iteration is not done
+                    if bit_counter < 255 then -- if the bit address is less than 255 iterate through hex digits until 255
+                    bit_counter <= bit_counter + 1; --increment bit counter
+                    TestHV_Done <= '0'; -- Clear done during iteration since the inference is still cycling through the bit addr
+                    ClassHV_Done <= '0'; -- Clear ClassHV done during iteration since ^^^^^^
+                    else --when bit counter reaches 255, meaning the inference for test to class is done
+                    bit_counter <= 0; --reset bit counter for next class
+                    ClassHV_Done <= '1'; -- Signal that one ClassHV comparison is complete
+                        if class_counter > 0 then--and if class counter greater than 0 it means there are still classes left to compare
+                        class_counter <= class_counter - 1; --decrement class counter**************************  25=>0
+                        TestHV_Done <= '0'; -- Clear done, more classes to process
+                        
+                        else -- when class counter reaches 0 and bit counter reaches 255
                     -- this statement is for when the test hypervector has been compared against all class hypervectors
                         class_counter <= 25; -- wrap around to first class
-                        Done <= '1'; -- signal that all classes and bits have been output
+                        TestHV_Done <= '1'; -- signal that all classes and bits have been output
                         --and the current inference cycle is complete for the current test HV
                         -- Next test HV can be loaded externally or counter incremented here
                         -- when the test HV has been infered to every class HV
-                        testHV_counter <= testHV_counter - 1; --decrement test HV counter>>>>>>>>>>>>>
+                        testHV_counter <= testHV_counter - 1; --decrement test HV counter
                         -- the next TestHv is selected for array address and the process can iterate 
                         --through the next TestHV against all ClassHVs
-                        bit_counter <= 0; --reset bit counter for next class
-                    end if;
+                        --bit_counter <= 0; --reset bit counter for next class REDUNDANT
+                        end if;
 
+                    end if;
                 end if;
-            else
-                Done <= '0'; -- Clear done when not enabled
+            else -- if enable is 0
+                TestHV_Done <= '0'; -- Clear done when not enabled
             end if;
+            Done <= iteration_done; -- Output done signal
             ClassHV <= std_logic_vector(to_unsigned(class_counter, 5));
             -- Generate class from class counter for RAM access
             TestHV <= std_logic_vector(to_unsigned(testHV_counter, 7));
             -- Generate TestHV from testHV_counter for RAM access
-            bit_addr <= std_logic_vector(to_unsigned(bit_counter, 10));
-            -- Generate bit address from bit counter for RAM access
+            bit_addr <= std_logic_vector(to_unsigned(bit_counter, 8));
+            -- Generate hex digit address from bit counter for RAM access
         end if;
     end process;
 end Behavioral;
+
 
 
 
