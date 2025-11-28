@@ -8,7 +8,6 @@
 -- Revision History:
 -- Date          Version     Description
 -- 11/11/2025    1.0         Initial creation
--- 11/13/2025                Debugged
 --------------------------------------------------------------------------------
 
 library IEEE;
@@ -19,21 +18,23 @@ USE ieee.numeric_std.ALL;
 entity ClassHV_RAM is
 port(
  class_select: in std_logic_vector(4 downto 0); -- Select which class (0-25)
- --this input comes from......
- bit_addr: in std_logic_vector(9 downto 0); -- Bit address (0-1023)
- --this input comes from......
- RAM_CLOCK: in std_logic; -- clock input for RAM
- RAM_EN: in std_logic; -- Enable reading
+ --this input comes from the BIT_SELECT 
+ bit_addr: in std_logic_vector(7 downto 0); -- Hex digit address (0-255)
+ --this input comes from the BIT_SELECT
+ RAM_CLOCK: in std_logic; -- clock input for RAM from top level clock
+ RAM_EN: in std_logic; -- Enable reading FROM THE CONTROLLER/STATE MACHINE
  --this input comes from the controller/state machine
- RAM_DATA_OUT: out std_logic; -- Single bit output
+ reset: in std_logic; -- Reset input from controller
+ RAM_DATA_OUT: out std_logic_vector(1023 downto 0); -- 4-bit hex digit output ** out std_logic_vector(3 downto 0) **
  --data out to the registers feeding the HAMM accumulator
- done: out std_logic -- Pulses when last bit (1023) is read
+ CLASS_OUT: out std_logic_vector(4 downto 0) -- Output current class being read to the guess compile module
+
 );
 end ClassHV_RAM;
 architecture Behavioral of ClassHV_RAM is
 -- define the new type for the RAM storing hex strings
 type RAM_ARRAY is array (0 to 25) of std_logic_vector (1023 downto 0);
-signal done_delayed : std_logic := '0'; -- Pipeline register for done signal
+
 -- initial values in the RAM (26 class hypervectors, each 1024 bits)
 signal RAM: RAM_ARRAY :=(
 x"C54C6F2CADF2A4E3CBD6386C67715D3C8006AD201B5F31617F5736222C92A6E7C24AB7513248ABEE0F2241E4BF4E4D86BE865165E263F497ED063CD05C179DA0AB0749C5375F22E92BF84301AF5D635973D5963819713C45C730C2B92CA8C613B01C624199E1261B1581AE901376C85473C0B6F740CD14A28D58626BDCDA95E3", 
@@ -65,30 +66,26 @@ x"C5CC6F6CADD224E34BD6386EC5715D2C8002AD60BB5F3561795736336C9266C7C34FFF1132482B
 
 
    ); 
-begin
-process(RAM_CLOCK)
-begin
- if(rising_edge(RAM_CLOCK)) then
-    if(RAM_EN = '1') then --should be controlled by controller/state
-        -- Output single bit from selected class at specified bit address
-        RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)))(to_integer(unsigned(bit_addr)));
-        --address is selected by the class and the bit_addr input
+begin 
+    process(RAM_CLOCK, reset)
+    begin
+    if(rising_edge(RAM_CLOCK)) then
+        if(reset = '1') then
+        -- Reset the RAM data output 
         
-        -- Signal done_delayed when we've read the last bit (address 1023)
-        -- This creates a pipeline delay to match the registered RAM output
-        if(unsigned(bit_addr) = 1023) then
-            -- when the bit_addr reaches 1023, we have finished reading the hypervector
-            done_delayed <= '1';
-        else
-            done_delayed <= '0';
+            RAM_DATA_OUT <= (others => '0'); -- Initialize data_out to zero on reset
+        elsif(RAM_EN = '1') then --should be controlled by controller/state
+        -- Output 4 bits (one hex digit) from selected class at specified hex digit address
+        -- bit_addr 0 = bits 1023 downto 1020, bit_addr 1 = bits 1019 downto 1016, etc.
+        RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)));
+        --address is selected by the class and the bit_addr input and uses the above function to call the individual binary bits of each individual hex bit since the array is indexed as...
+        -- hex making the individual bits avialable to access from 0-1023
+        -- RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)))((1023 - to_integer(unsigned(bit_addr)) * 4) downto (1020 - to_integer(unsigned(bit_addr)) * 4));
         end if;
-        
-        -- Output the delayed done signal (synchronized with RAM data output)
-        done <= done_delayed;
-    else --default output 
-        done_delayed <= '0';
-        done <= '0';
+        -- Always output the current class select (combinational, not gated by RAM_EN)
+        CLASS_OUT <= class_select;
     end if;
- end if;
-end process; 
-end Behavioral;
+end process;
+
+end Behavioral; 
+
