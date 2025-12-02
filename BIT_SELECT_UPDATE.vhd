@@ -40,9 +40,9 @@ begin
     process(clk, reset)
     begin
         if reset = '1' then
-            class_counter <= 0;--default to class 0
+            class_counter <= 25;--fault to class 0
             --bit_counter <= 0; --default to bit 0
-            testHV_counter <= 0; --default to TestHV 0
+            testHV_counter <= 127; --ult to TestHV 0
             ClassHV <= (others => '0'); --default output to class 0
             TestHV <= (others => '0'); --default output to TestHV 0
             --bit_addr <= (others => '0'); --default output to bit 0

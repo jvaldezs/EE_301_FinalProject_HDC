@@ -31,7 +31,9 @@ entity Inference_Top is
         Current_bit_addr : out std_logic_vector(7 downto 0);  -- Current bit address (UNUSED in single cycle)
         current_class_addr : out std_logic_vector(4 downto 0);  -- Current class address being processed
         current_testHV_addr : out std_logic_vector(6 downto 0);  -- Current TestHV address being processed
-        hamm_sum_out : out std_logic_vector(13 downto 0)  -- Current Hamming distance accumulator output
+        Current_sum_out : out std_logic_vector(13 downto 0);  -- Current Hamming distance accumulator output
+        MAX_sum : out std_logic_vector(13 downto 0);  -- Current Hamming distance accumulator output
+        state : out string(1 to 5)  -- Current state from Controller for debugging
     );
 end Inference_Top;
 
@@ -85,7 +87,8 @@ architecture Structural of Inference_Top is
             A_data_in : in  STD_LOGIC_VECTOR(1023 downto 0);
             B_data_in : in  STD_LOGIC_VECTOR(1023 downto 0);
             Class_in : in  STD_LOGIC_VECTOR(4 downto 0);
-            sum_out  : out STD_LOGIC_VECTOR(13 downto 0);
+            Current_sum : out STD_LOGIC_VECTOR(13 downto 0); -- Current Hamming Distance
+            MAX_sum_out : out STD_LOGIC_VECTOR(13 downto 0); -- Current Max Hamming Distance
             Guess_out: out STD_LOGIC_VECTOR(4 downto 0);
             new_max  : out STD_LOGIC
         );
@@ -97,7 +100,8 @@ architecture Structural of Inference_Top is
             reset                     : in  std_logic;
             start                     : in  std_logic;           
             RAM_EN                    : out std_logic;
-            inference_done            : out  std_logic
+            inference_done            : out  std_logic;
+            state_out                 : out string(1 to 5)
  
         );
     end component;
@@ -121,12 +125,14 @@ architecture Structural of Inference_Top is
     signal hamm_sum      : std_logic_vector(13 downto 0);
     
     -- HAMM MAX signals
-    signal max_sum       : std_logic_vector(13 downto 0);
+    signal max_sum_sig       : std_logic_vector(13 downto 0);
     signal new_max_sig   : std_logic;
+    signal current_sum_sig : std_logic_vector(13 downto 0);
     
     -- Controller signals
 
     signal RAM_EN_sig             : std_logic;
+    signal state_out_sig          : string(1 to 5);
     
     --Guess signal
     signal guess_out_sig : std_logic_vector(4 downto 0) ;
@@ -180,9 +186,11 @@ begin
             A_data_in => ClassHV_bit,
             B_data_in => TestHV_bit,
             Class_in => class_out_sig,       -- Use DIRECT signal (no delay needed)
-            sum_out  => max_sum,
+            
             Guess_out => guess_out_sig,
-            new_max  => new_max_sig
+            new_max  => new_max_sig,
+            MAX_sum_out => max_sum_sig ,
+            Current_sum => current_sum_sig
         );
     
     -- Instantiate Controller
@@ -192,7 +200,8 @@ begin
             reset                      => reset,
             start                      => start,
             inference_done            => INF_Done_sig,
-            RAM_EN                     => RAM_EN_sig
+            RAM_EN                     => RAM_EN_sig,
+            state_out                 => state_out_sig
         );
     
     -- Output assignments
@@ -202,6 +211,8 @@ begin
     TestHV_done <= ClassHV_Done_sig; -- Output the direct Done signal
     current_class_addr <= ClassHV_addr;
     current_testHV_addr <= TestHV_addr_sig;
-    hamm_sum_out <= max_sum; -- Outputting max_sum here as hamm_sum is internal to HAMM_COMPLETE now
-
+    MAX_sum <= max_sum_sig; -- Outputting max_sum here as hamm_sum is internal to HAMM_COMPLETE now
+    Current_sum_out <= current_sum_sig; -- Output the current sum from HAMM_COMPLETE
+    state <= state_out_sig; -- Output the current state from Controller for debugging
 end Structural;
+--MAX_sum_out

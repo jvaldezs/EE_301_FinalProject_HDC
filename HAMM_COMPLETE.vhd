@@ -21,8 +21,8 @@ entity HAMM_COMPLETE is
     A_data_in   : in  STD_LOGIC_VECTOR(1023 downto 0); -- Class HV
     B_data_in   : in  STD_LOGIC_VECTOR(1023 downto 0); -- Test HV
     Class_in    : in  STD_LOGIC_VECTOR(4 downto 0);    -- Current Class ID
-    
-    sum_out     : out STD_LOGIC_VECTOR(13 downto 0); -- Current Max Hamming Distance
+    Current_sum : out STD_LOGIC_VECTOR(13 downto 0); -- Current Hamming Distance
+    MAX_sum_out : out STD_LOGIC_VECTOR(13 downto 0); -- Current Max Hamming Distance
     Guess_out   : out STD_LOGIC_VECTOR(4 downto 0);  -- Current Best Guess
     new_max     : out STD_LOGIC -- Signal indicating a new max was found
 );
@@ -41,7 +41,7 @@ begin
             if(reset = '1') then
                 Current_Max <= (others => '0');
                 Current_Guess <= (others => '0');
-                sum_out <= (others => '0');
+                MAX_sum_out <= (others => '0');
                 Guess_out <= (others => '0');
                 new_max <= '0';
                 prev_TestHV_Done <= '0';
@@ -89,8 +89,8 @@ begin
                         new_max <= '0';
                     end if;
                 end if;
-                
-                sum_out <= Current_Max;
+                Current_sum <= dist_vector;
+                MAX_sum_out <= Current_Max;
                 Guess_out <= Current_Guess;
             end if;
         end if;

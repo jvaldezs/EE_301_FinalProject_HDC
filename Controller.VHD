@@ -16,7 +16,8 @@ entity Controller is
         RAM_EN         : out std_logic;    -- enables ClassHV/TestHV RAM reads
         Load           : out std_logic;    -- 1-cycle pulse to HAMM_accumulator
         ClassHV_Done   : out std_logic;    -- 1-cycle pulse to clear HAMM between classes
-        inference_done : out std_logic     -- goes high when all classes processed
+        inference_done : out std_logic;    -- goes high when all classes processed
+        state_out      : out string(1 to 5)  -- for debugging purposes
     );
 end Controller;
 
@@ -112,7 +113,6 @@ begin
                 v_ClassHV_Done := '1';
                 v_RAM_EN       := '1';  -- optional: keep RAM enabled
                 v_next_state   := S_NEXT_CLASS;
-
             ----------------------------------------------------------------
             when S_NEXT_CLASS =>
                 -- Decide whether to move to next class or finish
@@ -131,7 +131,6 @@ begin
                 v_inference_done := '1';
                 -- RAM_EN, Load, ClassHV_Done all low
                 v_next_state := S_DONE;
-
             ----------------------------------------------------------------
             when others =>
                 v_next_state     := S_RESET;
@@ -151,6 +150,19 @@ begin
     -- Drive class_select output from internal counter
     --------------------------------------------------------------------
     class_select <= std_logic_vector(class_idx);
+
+    --------------------------------------------------------------------
+    -- State output for debugging
+    --------------------------------------------------------------------
+    with state select state_out <=
+        "RESET" when S_RESET,
+        "IDLE " when S_IDLE,
+        "SET_C" when S_SET_CLASS,
+        "LOAD " when S_LOAD,
+        "CLEAR" when S_CLEAR_HAMM,
+        "NEXT " when S_NEXT_CLASS,
+        "DONE " when S_DONE,
+        "ERROR" when others;
 
 end Behavioral;
 

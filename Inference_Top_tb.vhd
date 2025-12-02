@@ -31,7 +31,9 @@ architecture Behavioral of Inference_Top_tb is
             Current_bit_addr : out std_logic_vector(7 downto 0);
             current_class_addr : out std_logic_vector(4 downto 0);
             current_testHV_addr : out std_logic_vector(6 downto 0);
-            hamm_sum_out : out std_logic_vector(10 downto 0)
+            Current_sum_out : out std_logic_vector(13 downto 0);  -- Current Hamming distance accumulator output
+            MAX_sum : out std_logic_vector(13 downto 0);  -- Current Hamming distance accumulator output
+            state : out string(1 to 5)
         );
     end component;
     
@@ -45,7 +47,9 @@ architecture Behavioral of Inference_Top_tb is
     signal TestHV     : std_logic_vector(6 downto 0);
     signal bit_addr   : std_logic_vector(7 downto 0);
     signal TestHV_done : std_logic;
-    signal hamm_sum    : std_logic_vector(10 downto 0);
+    signal Current_sum_out : std_logic_vector(13 downto 0);
+    signal MAX_sum : std_logic_vector(13 downto 0);
+    signal state : string(1 to 5);
     
     -- Test control signals
     signal testHV_count : integer := 0;
@@ -64,7 +68,9 @@ begin
             Current_bit_addr => bit_addr,
             current_class_addr => ClassHV,
             current_testHV_addr => TestHV,
-            hamm_sum_out => hamm_sum
+            Current_sum_out => Current_sum_out,
+            MAX_sum => MAX_sum,
+            state => state
         );
     
     -- Clock process
@@ -113,7 +119,7 @@ begin
                 report "TestHV_Done asserted at time " & time'image(now) &
                        " | TestHV=" & integer'image(to_integer(unsigned(TestHV))) &
                        " | Guess=" & integer'image(to_integer(unsigned(Guess_out))) &
-                       " | Hamm_Sum=" & integer'image(to_integer(unsigned(hamm_sum)));
+                       " | Hamm_Sum=" & integer'image(to_integer(unsigned(Current_sum_out)));
             end if;
             
             -- Detect rising edge of Done

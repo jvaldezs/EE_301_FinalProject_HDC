@@ -73,7 +73,7 @@ begin
         if(reset = '1') then
         -- Reset the RAM data output 
         
-            RAM_DATA_OUT <= (others => '0'); -- Initialize data_out to zero on reset
+            RAM_DATA_OUT <= (others => '1'); -- Initialize data_out to zero on reset
         elsif(RAM_EN = '1') then --should be controlled by controller/state
         -- Output 4 bits (one hex digit) from selected class at specified hex digit address
         -- bit_addr 0 = bits 1023 downto 1020, bit_addr 1 = bits 1019 downto 1016, etc.
