@@ -45,6 +45,7 @@ architecture Structural of Inference_Top is
             clk      : in  STD_LOGIC;
             reset    : in  STD_LOGIC;
             enable   : in  STD_LOGIC;
+            Class0_ready : in STD_LOGIC;
             ClassHV  : out std_logic_vector(4 downto 0);
             TestHV   : out std_logic_vector(6 downto 0);
             -- bit_addr : out std_logic_vector(7 downto 0); -- REMOVED
@@ -90,7 +91,8 @@ architecture Structural of Inference_Top is
             Current_sum : out STD_LOGIC_VECTOR(13 downto 0); -- Current Hamming Distance
             MAX_sum_out : out STD_LOGIC_VECTOR(13 downto 0); -- Current Max Hamming Distance
             Guess_out: out STD_LOGIC_VECTOR(4 downto 0);
-            new_max  : out STD_LOGIC
+            new_max  : out STD_LOGIC;
+            Class0_processed : out STD_LOGIC
         );
     end component;
     
@@ -100,7 +102,7 @@ architecture Structural of Inference_Top is
             reset                     : in  std_logic;
             start                     : in  std_logic;           
             RAM_EN                    : out std_logic;
-            inference_done            : out  std_logic;
+            inference_done            : in  std_logic;
             state_out                 : out string(1 to 5)
  
         );
@@ -121,13 +123,13 @@ architecture Structural of Inference_Top is
     signal class_out_sig : std_logic_vector(4 downto 0);
     
     
-    -- HAMM accumulator signals
-    signal hamm_sum      : std_logic_vector(13 downto 0);
+   
     
     -- HAMM MAX signals
     signal max_sum_sig       : std_logic_vector(13 downto 0);
     signal new_max_sig   : std_logic;
     signal current_sum_sig : std_logic_vector(13 downto 0);
+    signal class0_processed_sig : std_logic;
     
     -- Controller signals
 
@@ -146,6 +148,7 @@ begin
             clk      => clk,
             reset    => reset,
             enable   => RAM_EN_sig,
+            Class0_ready => class0_processed_sig,
             ClassHV  => ClassHV_addr,
             TestHV   => TestHV_addr_sig,
             -- bit_addr => bit_addr_sig, -- REMOVED
@@ -190,7 +193,8 @@ begin
             Guess_out => guess_out_sig,
             new_max  => new_max_sig,
             MAX_sum_out => max_sum_sig ,
-            Current_sum => current_sum_sig
+            Current_sum => current_sum_sig,
+            Class0_processed => class0_processed_sig
         );
     
     -- Instantiate Controller
@@ -214,5 +218,5 @@ begin
     MAX_sum <= max_sum_sig; -- Outputting max_sum here as hamm_sum is internal to HAMM_COMPLETE now
     Current_sum_out <= current_sum_sig; -- Output the current sum from HAMM_COMPLETE
     state <= state_out_sig; -- Output the current state from Controller for debugging
+
 end Structural;
---MAX_sum_out

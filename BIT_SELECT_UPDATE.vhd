@@ -22,6 +22,7 @@ entity BIT_SELECT is
         clk : in STD_LOGIC; -- Clock input
         reset : in STD_LOGIC; -- Reset input
         enable : in STD_LOGIC; -- Enable signal to start the selection process FROM THE CONTROLER/STATE MACHINE SAME SIGNAL AS RAM_EN
+        Class0_ready : in STD_LOGIC; -- Signal from HAMM that class 0 has been processed
         --this is controlled by the state when the FSM wants to start reading bits for ClassHV RAM and TestHV RAM
         ClassHV : out std_logic_vector(4 downto 0); -- class output (1-26)
         TestHV : out std_logic_vector(6 downto 0); -- Test Hypervector class address (0-125)
@@ -54,16 +55,18 @@ begin
                         class_counter <= class_counter - 1; --decrement class counter
                         Done <= '0'; -- Clear done, more classes to process
                 else -- when class counter reaches 0
-                        class_counter <= 25; -- wrap around to first class
                         Done <= '1'; -- signal that all classes and bits have been output
                         --and the current inference cycle is complete for the current test HV
-                        -- Next test HV can be loaded externally or counter incremented here
-                        if testHV_counter > 0 then
-                            testHV_counter <= testHV_counter - 1; --decrement TestHV counter
-                            inference_done <= '0'; -- More TestHVs to process
-                        else
-                            -- testHV_counter <= 127; -- REMOVED WRAP AROUND
-                            inference_done <= '1'; -- signal that entire inference cycle is complete
+                        -- Wait for Class0_ready before iterating TestHV
+                        if Class0_ready = '1' then
+                            class_counter <= 25; -- wrap around to first class
+                            if testHV_counter > 0 then
+                                testHV_counter <= testHV_counter - 1; --decrement TestHV counter
+                                inference_done <= '0'; -- More TestHVs to process
+                            else
+                                -- testHV_counter <= 127; -- REMOVED WRAP AROUND
+                                inference_done <= '1'; -- signal that entire inference cycle is complete
+                            end if;
                         end if;
                 end if;
             
