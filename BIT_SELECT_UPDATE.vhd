@@ -23,12 +23,14 @@ entity BIT_SELECT is
         reset : in STD_LOGIC; -- Reset input
         enable : in STD_LOGIC; -- Enable signal to start the selection process FROM THE CONTROLER/STATE MACHINE SAME SIGNAL AS RAM_EN
         Class0_ready : in STD_LOGIC; -- Signal from HAMM that class 0 has been processed
+        Train_EN : in STD_LOGIC;
         --this is controlled by the state when the FSM wants to start reading bits for ClassHV RAM and TestHV RAM
         ClassHV : out std_logic_vector(4 downto 0); -- class output (1-26)
         TestHV : out std_logic_vector(6 downto 0); -- Test Hypervector class address (0-125)
         -- NOT IN USEbit_addr : out std_logic_vector(7 downto 0); -- Hex digit address (0-255)
         Done : out std_logic; -- Signals when all classes and bits have been output
-        inference_done : out std_logic  -- Signals when the entire inference cycle is complete
+        inference_done : out std_logic; -- Signals when the entire inference cycle is complete
+        class_array_change : in std_logic  -- Signal when the ClassHV array has been updated
        
     );
 end BIT_SELECT;
@@ -40,40 +42,44 @@ architecture Behavioral of BIT_SELECT is
 begin
     process(clk, reset)
     begin
-        if reset = '1' then
+        if (reset = '1' or Train_EN = '1') then
             class_counter <= 25;--fault to class 0
             --bit_counter <= 0; --default to bit 0
             testHV_counter <= 127; --ult to TestHV 0
-            ClassHV <= (others => '0'); --default output to class 0
-            TestHV <= (others => '0'); --default output to TestHV 0
+        -- ClassHV <= (others => '0'); --default output to class 0
+            --TestHV <= (others => '0'); --default output to TestHV 0
             --bit_addr <= (others => '0'); --default output to bit 0
             Done <= '0'; -- Clear done signal
         elsif rising_edge(clk) then
-            if enable = '1' then -- Only run when enabled
+            if (enable = '1' and not(testHV_counter=0)) then -- Only run when enabled and exclude when the TestHV is 0
             --======================================================
                 if class_counter > 0 then--and if class counter less than 25
                         class_counter <= class_counter - 1; --decrement class counter
                         Done <= '0'; -- Clear done, more classes to process
+                        inference_done <= '0'; -- More TestHVs to process
                 else -- when class counter reaches 0
                         Done <= '1'; -- signal that all classes and bits have been output
                         --and the current inference cycle is complete for the current test HV
                         -- Wait for Class0_ready before iterating TestHV
-                        if Class0_ready = '1' then
+                        if (Class0_ready = '1') then
                             class_counter <= 25; -- wrap around to first class
                             if testHV_counter > 0 then
                                 testHV_counter <= testHV_counter - 1; --decrement TestHV counter
                                 inference_done <= '0'; -- More TestHVs to process
-                            else
-                                -- testHV_counter <= 127; -- REMOVED WRAP AROUND
-                                inference_done <= '1'; -- signal that entire inference cycle is complete
+                            else--when testHV_counter reaches 0                                
+                                -- inference_done <= '1'; -- signal that entire inference cycle is complete
+                                --hold TestHV counter at 0 the reset at the next iteration will wrap it
                             end if;
                         end if;
                 end if;
+            elsif (enable = '1' and testHV_counter=0) then
+                inference_done <= '1'; -- signal that entire inference cycle is complete
             
                 
                 --Done <= '0'; -- Clear done when not enabled
             else -- if enable is 0
                 Done <= '0'; -- Clear done when not enabled
+                inference_done <= '0'; -- Clear inference done when not enabled
             end if;
             ClassHV <= std_logic_vector(to_unsigned(class_counter, 5));
             -- Generate class from class counter for RAM access

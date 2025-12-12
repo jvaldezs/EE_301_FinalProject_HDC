@@ -20,7 +20,6 @@ entity TestHV_RAM is
         Read_en : in STD_LOGIC; -- Read enable signal FROM THE CONTROLLER/STATE MACHINE
         TestHV_addr : in std_logic_vector(6 downto 0); -- Test Hypervector class address (0-125)
         --controlled by the controller/state machine from bit select module
-        bit_addr : in std_logic_vector(7 downto 0); -- Hex digit address (0-255)
         -- controlled by the controller/state machine from bit select module
         data_out : out std_logic_vector(1023 downto 0) -- Output 4-bit hex digit ***changed from 3 downto 0 112420245***
     );
