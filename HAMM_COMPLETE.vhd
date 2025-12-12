@@ -24,8 +24,7 @@ entity HAMM_COMPLETE is
     Current_sum : out STD_LOGIC_VECTOR(13 downto 0); -- Current Hamming Distance
     MAX_sum_out : out STD_LOGIC_VECTOR(13 downto 0); -- Current Max Hamming Distance
     Guess_out   : out STD_LOGIC_VECTOR(4 downto 0);  -- Current Best Guess
-    new_max     : out STD_LOGIC; -- Signal indicating a new max was found
-    Class0_processed : out STD_LOGIC -- Pulses when class 0 has been loaded and processed
+    new_max     : out STD_LOGIC -- Signal indicating a new max was found
 );
 end HAMM_COMPLETE;
 
@@ -33,7 +32,6 @@ architecture Behavioral of HAMM_COMPLETE is
     signal Current_Max : STD_LOGIC_VECTOR(13 downto 0) := (others => '0');
     signal Current_Guess : STD_LOGIC_VECTOR(4 downto 0) := (others => '0');
     signal prev_TestHV_Done : std_logic := '0';
-    signal prev_Class_in : STD_LOGIC_VECTOR(4 downto 0) := (others => '1');
 begin
     process(clk, reset)
         variable match_count : integer range 0 to 1024;
@@ -47,19 +45,8 @@ begin
                 Guess_out <= (others => '0');
                 new_max <= '0';
                 prev_TestHV_Done <= '0';
-                prev_Class_in <= (others => '1');
-                Class0_processed <= '0';
             else
                 prev_TestHV_Done <= TestHV_Done;
-                prev_Class_in <= Class_in;
-                
-                -- Detect when class 0 has been loaded (transitions from non-zero to 0)
-                if Load = '1' and Class_in = "00000" and prev_Class_in = "00000" then
-                    Class0_processed <= '1';
-                    
-                else
-                    Class0_processed <= '0';
-                end if;
                 
                 -- Calculate Hamming Distance (Combinatorial logic inside process, registered output)
                 match_count := 0;
@@ -73,15 +60,28 @@ begin
                 dist_vector := std_logic_vector(to_unsigned(match_count, 14));
 
                 -- Max/Guess Logic
-                -- Reset when transitioning from class 0 to class 25 (new TestHV starting)
-                if Load = '1' and prev_Class_in = "00000" and Class_in = "11001" then
-                    -- Starting new TestHV with class 25, set it as default max
-                    Current_Max <= dist_vector;
-                    Current_Guess <= Class_in;
-                    new_max <= '1';
+                -- Clear max/guess one cycle AFTER TestHV_Done goes high
+                if prev_TestHV_Done = '1' and TestHV_Done = '0' then
+                    -- Optimized Reset: If starting new TestHV immediately
+                    if Load = '1' then
+                        -- Since it's the first class of new TestHV, it is automatically the max
+                        if match_count > 0 then
+                            Current_Max <= dist_vector;
+                            Current_Guess <= Class_in;
+                            new_max <= '1';
+                        else
+                            Current_Max <= (others => '0');
+                            Current_Guess <= (others => '0');
+                            new_max <= '0';
+                        end if;
+                    else
+                        Current_Max <= (others => '0');
+                        Current_Guess <= (others => '0');
+                        new_max <= '0';
+                    end if;
                     
                 elsif(Load = '1') then
-                    if(unsigned(dist_vector) >= unsigned(Current_Max)) then
+                    if(unsigned(dist_vector) > unsigned(Current_Max)) then
                         new_max <= '1'; 
                         Current_Max <= dist_vector;
                         Current_Guess <= Class_in;

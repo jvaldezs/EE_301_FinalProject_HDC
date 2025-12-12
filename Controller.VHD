@@ -74,7 +74,7 @@ begin
         when Sdone =>-- 
             next_state <= Sdone;
         when others =>
-            next_state <= Sreset; --
+            next_state <= Sreset; -
     end case;
 end process;
 

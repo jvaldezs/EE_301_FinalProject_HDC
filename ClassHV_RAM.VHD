@@ -14,17 +14,23 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 USE ieee.numeric_std.ALL;
 
--- A 1028x26 single-port RAM in VHDL
+-- A 1028x26 single-port RAM in VHDL with read/write capability
 entity ClassHV_RAM is
 port(
  class_select: in std_logic_vector(4 downto 0); -- Select which class (0-25)
- --this input comes from the BIT_SELECT 
+ --this input comes from the BIT_SELECT or TRAIN module
  bit_addr: in std_logic_vector(7 downto 0); -- Hex digit address (0-255)
  --this input comes from the BIT_SELECT
  RAM_CLOCK: in std_logic; -- clock input for RAM from top level clock
  RAM_EN: in std_logic; -- Enable reading FROM THE CONTROLLER/STATE MACHINE
  --this input comes from the controller/state machine
  reset: in std_logic; -- Reset input from controller
+ 
+ -- Write interface for training
+ write_en: in std_logic; -- Write enable from TRAIN module
+ write_addr: in std_logic_vector(4 downto 0); -- Write address (class 0-25) from TRAIN module
+ RAM_DATA_IN: in std_logic_vector(1023 downto 0); -- Data to write from TRAIN module
+ 
  RAM_DATA_OUT: out std_logic_vector(1023 downto 0); -- 4-bit hex digit output ** out std_logic_vector(3 downto 0) **
  --data out to the registers feeding the HAMM accumulator
  CLASS_OUT: out std_logic_vector(4 downto 0) -- Output current class being read to the guess compile module
@@ -74,13 +80,15 @@ begin
         -- Reset the RAM data output 
         
             RAM_DATA_OUT <= (others => '1'); -- Initialize data_out to zero on reset
-        elsif(RAM_EN = '1') then --should be controlled by controller/state
-        -- Output 4 bits (one hex digit) from selected class at specified hex digit address
-        -- bit_addr 0 = bits 1023 downto 1020, bit_addr 1 = bits 1019 downto 1016, etc.
-        RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)));
-        --address is selected by the class and the bit_addr input and uses the above function to call the individual binary bits of each individual hex bit since the array is indexed as...
-        -- hex making the individual bits avialable to access from 0-1023
-        -- RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)))((1023 - to_integer(unsigned(bit_addr)) * 4) downto (1020 - to_integer(unsigned(bit_addr)) * 4));
+        else
+            -- Write has priority over read
+            if(write_en = '1') then
+                -- Write data to the specified class address
+                RAM(to_integer(unsigned(write_addr))) <= RAM_DATA_IN;
+            elsif(RAM_EN = '1') then
+                -- Read operation: Output 1024 bits from selected class
+                RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)));
+            end if;
         end if;
         -- Always output the current class select (combinational, not gated by RAM_EN)
         CLASS_OUT <= class_select;
