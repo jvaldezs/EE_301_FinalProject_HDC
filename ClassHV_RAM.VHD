@@ -8,34 +8,40 @@
 -- Revision History:
 -- Date          Version     Description
 -- 11/11/2025    1.0         Initial creation
--- 11/13/2025                Debugged
 --------------------------------------------------------------------------------
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 USE ieee.numeric_std.ALL;
-
+use work.TrainingHV_types.all;
 -- A 1028x26 single-port RAM in VHDL
 entity ClassHV_RAM is
 port(
  class_select: in std_logic_vector(4 downto 0); -- Select which class (0-25)
- --this input comes from......
- bit_addr: in std_logic_vector(9 downto 0); -- Bit address (0-1023)
- --this input comes from......
- RAM_CLOCK: in std_logic; -- clock input for RAM
- RAM_EN: in std_logic; -- Enable reading
+ --this input comes from the BIT_SELECT 
+ 
+ RAM_CLOCK: in std_logic; -- clock input for RAM from top level clock
+ RAM_EN: in std_logic; -- Enable reading FROM THE CONTROLLER/STATE MACHINE
+ Train_EN : in std_logic; -- enable the function for overwriting the RAM during training
  --this input comes from the controller/state machine
- RAM_DATA_OUT: out std_logic; -- Single bit output
+ reset: in std_logic; -- Reset input from controller
+
+ --=====TRAINING INPUTS from trainingHV_RAM
+ training_done: in std_logic; -- Pulse when training complete
+ ClassHV_array_in: in Class_RAM_ARRAY; -- All 26 corrected ClassHVs from training
+
+ RAM_DATA_OUT: out std_logic_vector(1023 downto 0); -- 1024-bit ClassHV output
  --data out to the registers feeding the HAMM accumulator
- done: out std_logic -- Pulses when last bit (1023) is read
+ CLASS_OUT: out std_logic_vector(4 downto 0); -- Output current class being read to the guess compile module
+ Class_array_corrected: out std_logic  -- Pulse signal to indicate ClassHV array has been corrected after training
+
 );
 end ClassHV_RAM;
 architecture Behavioral of ClassHV_RAM is
 -- define the new type for the RAM storing hex strings
-type RAM_ARRAY is array (0 to 25) of std_logic_vector (1023 downto 0);
-signal done_delayed : std_logic := '0'; -- Pipeline register for done signal
+
 -- initial values in the RAM (26 class hypervectors, each 1024 bits)
-signal RAM: RAM_ARRAY :=(
+signal RAM: Class_RAM_ARRAY :=(
 x"C54C6F2CADF2A4E3CBD6386C67715D3C8006AD201B5F31617F5736222C92A6E7C24AB7513248ABEE0F2241E4BF4E4D86BE865165E263F497ED063CD05C179DA0AB0749C5375F22E92BF84301AF5D635973D5963819713C45C730C2B92CA8C613B01C624199E1261B1581AE901376C85473C0B6F740CD14A28D58626BDCDA95E3", 
 x"D55C6F6CADF224E3CBD6386C05715D2C8006AD201B5F3561795776322C92E6C7D24FBB553248ABEE0F2241E4BF4E4D86BE861165E263F497E90638D45C175DA0AB074DC5375736E9ABF80303AF5D635D73D5D63819713D45C730C3B924A84E13B01CE2C1D9E1261B11012F901366C85C7340B67760CD14A28D58623B9CDA95E3", 
 x"85CC6F2C2DD224E3CBD6286E45715D2C8002AD60BB5F35617B573637EC1266C7C34FFF5132482BE60F2240E4AF4ECD863E87116DE062F497ED063CC45C175DA1AB274D85375677E92FF84301EB5D735D73D5963818717D47C538C2B86CAACE13B01CE2C1DDE1261B1501AF901366C85C73C2B66740CD14E28D58621B94DA15E3", 
@@ -65,30 +71,39 @@ x"C5CC6F6CADD224E34BD6386EC5715D2C8002AD60BB5F3561795736336C9266C7C34FFF1132482B
 
 
    ); 
-begin
-process(RAM_CLOCK)
-begin
- if(rising_edge(RAM_CLOCK)) then
-    if(RAM_EN = '1') then --should be controlled by controller/state
-        -- Output single bit from selected class at specified bit address
-        RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)))(to_integer(unsigned(bit_addr)));
-        --address is selected by the class and the bit_addr input
+begin 
+    process(RAM_CLOCK, reset)
+    begin
+    if(rising_edge(RAM_CLOCK)) then
+        if(reset = '1') then
+        -- Reset the RAM data output 
+            Class_array_corrected <= '0'; -- Reset the corrected signal
         
-        -- Signal done_delayed when we've read the last bit (address 1023)
-        -- This creates a pipeline delay to match the registered RAM output
-        if(unsigned(bit_addr) = 1023) then
-            -- when the bit_addr reaches 1023, we have finished reading the hypervector
-            done_delayed <= '1';
-        else
-            done_delayed <= '0';
+            RAM_DATA_OUT <= (others => '1'); -- Initialize data_out to zero on reset
+        elsif(RAM_EN = '1') then --should be controlled by controller/state
+        -- Output full 1024-bit ClassHV from selected class
+        Class_array_corrected <= '0'; -- Reset the corrected signal when reading
+        RAM_DATA_OUT <= RAM(to_integer(unsigned(class_select)));
         end if;
+        --==============TRAINING FUNCTION================================
+        -- When the training enable signal is high, overwrite the RAM with new ClassHV data
+        if (Train_EN = '1') then
+            if(training_done = '1') then-- only overwrites when the training is completed
+            --meaning the input array at the time of the pulse signal is the array after training
+            --the 128 guesses
+                RAM <= ClassHV_array_in; -- overwrite with the corrected array
+                Class_array_corrected <= '1'; -- this pulse signal will trigger the controller
+                --to transition now the training is completed with the overwriting the Class array
+            else-- if training done is not high
+            Class_array_corrected <= '0'; -- this resets the to low when not training after the pulse signal reaches the controller
+            end if;
         
-        -- Output the delayed done signal (synchronized with RAM data output)
-        done <= done_delayed;
-    else --default output 
-        done_delayed <= '0';
-        done <= '0';
+        end if;
+        -- Always output the current class select (combinational, not gated by RAM_EN)
+        CLASS_OUT <= class_select; --show the current class being output for use in the HAMM module
+        --for best guess comparison
     end if;
- end if;
-end process; 
-end Behavioral;
+end process;
+
+end Behavioral; 
+
