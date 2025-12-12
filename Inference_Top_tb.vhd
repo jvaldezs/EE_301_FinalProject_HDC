@@ -86,21 +86,12 @@ begin
     -- Stimulus process (runs indefinitely)
     stim_proc: process
     begin
-        -- Initialize
-        report "========================================";
-        report "Starting Inference_Top Testbench";
-        report "Running indefinitely - monitoring all TestHVs";
-        report "========================================";
-        
-        -- Test 1: Reset Test
         reset <= '1';
         start <= '0';
         wait for 100 ns;
         reset <= '0';
         wait for 100 ns;
 
-        -- Test 2: Start Inference and run indefinitely
-        report "Asserting start signal - Beginning inference";
         start <= '1';
         
         -- Run forever
@@ -114,15 +105,12 @@ begin
         variable prev_Done : std_logic := '0';
     begin
         if rising_edge(clk) then
-            -- Detect rising edge of TestHV_Done
             if TestHV_done = '1' and prev_TestHV_Done = '0' then
                 report "TestHV_Done asserted at time " & time'image(now) &
                        " | TestHV=" & integer'image(to_integer(unsigned(TestHV))) &
                        " | Guess=" & integer'image(to_integer(unsigned(Guess_out))) &
                        " | Hamm_Sum=" & integer'image(to_integer(unsigned(Current_sum_out)));
             end if;
-            
-            -- Detect rising edge of Done
             if Done = '1' and prev_Done = '0' then
                 report "Done signal asserted at time " & time'image(now) &
                        " | Final Guess=" & integer'image(to_integer(unsigned(Guess_out)));
@@ -134,3 +122,4 @@ begin
     end process;
 
 end Behavioral;
+
