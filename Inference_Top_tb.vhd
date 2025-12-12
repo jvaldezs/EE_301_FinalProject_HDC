@@ -23,29 +23,39 @@ architecture Behavioral of Inference_Top_tb is
     component Inference_Top is
         port(
             clk         : in  STD_LOGIC;
-            reset       : in  STD_LOGIC;
+            Master_reset       : in  STD_LOGIC;
             start       : in  STD_LOGIC;
+            -- Output
             Guess_out   : out STD_LOGIC_VECTOR(4 downto 0);
             Done        : out STD_LOGIC;
-            TestHV_done : out STD_LOGIC;
-            Current_bit_addr : out std_logic_vector(7 downto 0);
+            TestHV_done : out STD_LOGIC;          
             current_class_addr : out std_logic_vector(4 downto 0);
             current_testHV_addr : out std_logic_vector(6 downto 0);
-            hamm_sum_out : out std_logic_vector(10 downto 0)
+            Current_sum_out : out std_logic_vector(13 downto 0);  -- Current Hamming distance accumulator output
+            MAX_sum : out std_logic_vector(13 downto 0);  -- Current Hamming distance accumulator output
+            state : out string(1 to 5);
+            training_done : out std_logic;  -- Signals when training is done
+            inference_done : out std_logic;  -- Signals when inference is done
+            classHV_changed : out std_logic  -- Signals when ClassHV has been updated
+
         );
     end component;
     
     -- Test signals
     signal clk         : STD_LOGIC := '0';
-    signal reset       : STD_LOGIC := '0';
+    signal Master_reset       : STD_LOGIC := '0';
     signal start       : STD_LOGIC := '0';
     signal Guess_out   : STD_LOGIC_VECTOR(4 downto 0);
     signal Done        : STD_LOGIC;
     signal ClassHV    : std_logic_vector(4 downto 0);
     signal TestHV     : std_logic_vector(6 downto 0);
-    signal bit_addr   : std_logic_vector(7 downto 0);
     signal TestHV_done : std_logic;
-    signal hamm_sum    : std_logic_vector(10 downto 0);
+    signal Current_sum_out : std_logic_vector(13 downto 0);
+    signal MAX_sum : std_logic_vector(13 downto 0);
+    signal state : string(1 to 5);
+    signal training_done : std_logic;
+    signal inference_done : std_logic;
+    signal classHV_changed : std_logic;
     
     -- Test control signals
     signal testHV_count : integer := 0;
@@ -56,15 +66,19 @@ begin
     UUT: Inference_Top
         port map (
             clk       => clk,
-            reset     => reset,
+            Master_reset     => Master_reset,
             start     => start,
             Guess_out => Guess_out,
             Done      => Done,
-            TestHV_done => TestHV_done,
-            Current_bit_addr => bit_addr,
+            TestHV_done => TestHV_done,            
             current_class_addr => ClassHV,
             current_testHV_addr => TestHV,
-            hamm_sum_out => hamm_sum
+            Current_sum_out => Current_sum_out,
+            MAX_sum => MAX_sum,
+            state => state,
+            training_done => training_done,
+            inference_done => inference_done,
+            classHV_changed => classHV_changed
         );
     
     -- Clock process
@@ -77,54 +91,27 @@ begin
         wait for 20 ns;
     end process;
     
-    -- Stimulus process (runs indefinitely)
+    -- Stimulus process runs indefinitely
     stim_proc: process
     begin
-        -- Initialize
-        report "========================================";
-        report "Starting Inference_Top Testbench";
-        report "Running indefinitely - monitoring all TestHVs";
-        report "========================================";
+        
         
         -- Test 1: Reset Test
-        reset <= '1';
+        Master_reset <= '1';
         start <= '0';
         wait for 100 ns;
-        reset <= '0';
+        Master_reset <= '0';
         wait for 100 ns;
 
         -- Test 2: Start Inference and run indefinitely
-        report "Asserting start signal - Beginning inference";
+       
         start <= '1';
         
         -- Run forever
         wait;
         
-    end process;
+    
 
-    -- Monitor process - continuous monitoring of signals
-    monitor_process: process(clk)
-        variable prev_TestHV_Done : std_logic := '0';
-        variable prev_Done : std_logic := '0';
-    begin
-        if rising_edge(clk) then
-            -- Detect rising edge of TestHV_Done
-            if TestHV_done = '1' and prev_TestHV_Done = '0' then
-                report "TestHV_Done asserted at time " & time'image(now) &
-                       " | TestHV=" & integer'image(to_integer(unsigned(TestHV))) &
-                       " | Guess=" & integer'image(to_integer(unsigned(Guess_out))) &
-                       " | Hamm_Sum=" & integer'image(to_integer(unsigned(hamm_sum)));
-            end if;
-            
-            -- Detect rising edge of Done
-            if Done = '1' and prev_Done = '0' then
-                report "Done signal asserted at time " & time'image(now) &
-                       " | Final Guess=" & integer'image(to_integer(unsigned(Guess_out)));
-            end if;
-            
-            prev_TestHV_Done := TestHV_done;
-            prev_Done := Done;
-        end if;
     end process;
 
 end Behavioral;
